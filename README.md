@@ -1,17 +1,17 @@
 # Gyld Project
 
 ## Project Overview
-Gyld is a Node.js application that integrates TiddlyWiki5, using BlueSky ATProtocol for authentication and authorization.
+Gyld is a Node.js application that integrates TiddlyWiki5's new `multi-wiki-support` branch, using BlueSky ATProtocol for authentication and authorization.
 
 ## Setup
 
 ### Prerequisites
-Ensure the following dependencies are installed on your system:
+Ensure the following dependencies are installed on your WSL system:
 
-- **Node.js & npm** (for backend)
+- **NVM, Node.js & npm** (for backend)
 - **Docker & Docker Compose** (for containerized services)
 - **NGINX** (as a reverse proxy)
-- **Python** (required for Certbot SSL management)
+- **Python** (required for Certbot SSL management and other scripts)
 
 ### Install Project Dependencies
 ```bash
@@ -31,15 +31,10 @@ sudo apt install nginx -y
 nginx -v
 ```
 
-#### Deploy the Correct Configuration
+#### Deploy the Correct Configuration and start NGINX
 ```bash
-bash deploy_nginx_config.sh dev        # For local development
-bash deploy_nginx_config.sh production # For production deployment
-```
-
-#### Start NGINX Service
-```bash
-sudo service nginx start
+bash deploy_nginx_config.sh dev        # For local http development
+bash deploy_nginx_config.sh production # For production/https deployment
 ```
 
 ### Running the Project
@@ -62,7 +57,7 @@ Add the following entry to your `/etc/hosts` file to simulate the domain locally
 ```
 
 ### Production SSL Setup with Certbot
-For production deployment, Certbot is used to obtain and renew SSL certificates for the domains `gyld.app` and `gyld.social`.
+For production deployment, Certbot is used to obtain and renew SSL certificates for the domain `gyld.app`.
 
 #### Install Certbot and NGINX Plugin
 ```bash
@@ -71,7 +66,7 @@ sudo apt install certbot python3-certbot-nginx -y
 
 #### Obtain SSL Certificates
 ```bash
-sudo certbot --nginx -d gyld.app -d www.gyld.app -d gyld.social -d www.gyld.social
+sudo certbot --nginx -d gyld.app -d www.gyld.app
 ```
 
 #### Renew Certificates Automatically
@@ -83,29 +78,9 @@ sudo certbot renew --dry-run
 #### Update NGINX Configuration for SSL
 Modify the NGINX configuration to include the SSL certificate paths provided by Certbot.
 
-## Structure
-
-```
-gyld/
-├── docker/
-│   ├── docker-compose.yml
-├── nginx-configs/
-│   ├── nginx.dev.conf
-│   ├── nginx.prod.conf
-├── src/
-│   ├── server.js
-│   ├── auth/
-│   ├── wiki/
-├── .env
-├── .gitignore
-├── README.md
-└── package.json
-```
 
 - **docker/** - Configuration files for Docker containers
 - **nginx-configs/** - Contains separate NGINX configurations for local and production
 - **src/** - Application source code
   - **auth/** - Authentication logic
-  - **wiki/** - TiddlyWiki integrations
 - **.env** - Environment variables configuration
-

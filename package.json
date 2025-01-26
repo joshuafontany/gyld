@@ -1,20 +1,15 @@
 {
   "name": "gyld",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "nginx:deploy:dev": "dotenvx run -f .env -- bash deploy_nginx_config.sh dev",
+    "nginx:deploy:prod": "dotenvx run -f .env.production -- bash deploy_nginx_config.sh production",
+    "ssl:setup": "dotenvx run -f .env.production -- bash setup_certbot_ssl.sh"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/joshuafontany/gyld.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/joshuafontany/gyld/issues"
-  },
-  "homepage": "https://github.com/joshuafontany/gyld#readme",
-  "description": ""
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.34.0",
+    "tiddlywiki": "github:joshuafontany/tiddlywiki5#multi-wiki-support"
+  }
 }

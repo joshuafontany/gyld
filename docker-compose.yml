@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  tiddlywiki:
+    image: nicolaw/tiddlywiki:latest
+    container_name: tiddlywiki
+    ports:
+      - "8080:8080"
+    volumes:
+      - ~/tiddlywiki:/var/lib/tiddlywiki
+    env_file:
+      - .env
+    restart: unless-stopped

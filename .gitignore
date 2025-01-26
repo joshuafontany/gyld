@@ -1,4 +1,13 @@
+# node modules
 node_modules/
+
+# Ignore real environment files
 .env
+.env.*
+
+# Ignore the wiki data
+wikis/
+
+# other
 *.log
 .DS_Store
