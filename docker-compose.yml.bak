@@ -1,8 +1,6 @@
-version: '3.9'
-
 services:
   ###################################################################
-  # Admin Subdomain
+  # Admin Root WWW Subdomain
   ###################################################################
   admin:
     container_name: mws_admin
@@ -15,9 +13,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8080
     volumes:
-      # 1) Subdomain edition (read-only): tiddlywiki.info + any subdomain tiddlers
       - ./wikis/admin:/app/TiddlyWiki5/editions/admin:ro
-      # 2) Data folder: store the database + uploads
       - ./data/admin:/app/TiddlyWiki5/editions/admin/store
     ports:
       - "8080:8080"
@@ -42,27 +38,6 @@ services:
       - ./data/sdm:/app/TiddlyWiki5/editions/sdm/store
     ports:
       - "8081:8080"
-    networks:
-      - mws_net
-
-  ###################################################################
-  # silat Subdomain
-  ###################################################################
-  silat:
-    container_name: mws_silat
-    build:
-      context: .
-      dockerfile: docker/mws/Dockerfile
-    command: [ "node", "./tiddlywiki.js", "./editions/silat", "--mws-listen" ]
-    working_dir: "/app/TiddlyWiki5"
-    environment:
-      - HOST=0.0.0.0
-      - PORT=8080
-    volumes:
-      - ./wikis/silat:/app/TiddlyWiki5/editions/silat:ro
-      - ./data/silat:/app/TiddlyWiki5/editions/silat/store
-    ports:
-      - "8082:8080"  # Different host port than sdm
     networks:
       - mws_net
 
