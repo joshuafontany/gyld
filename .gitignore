@@ -33,10 +33,10 @@ docker-compose.override.yml
 # -------------------------------------------------------------
 # TiddlyWiki MWS: Wiki Editions & Data
 # -------------------------------------------------------------
-# 1) Keep 'admin' subdomain in version control (ignore everything else).
-#   - The ! syntax inverts ignore for admin
+# 1) Keep 'www' subdomain in version control (ignore everything else).
+#   - The ! syntax inverts ignore for www
 wikis/*
-!wikis/admin/
+!wikis/www/
 
 # -------------------------------------------------------------
 # TiddlyWiki MWS Data

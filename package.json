@@ -12,7 +12,7 @@
     "test:subdomains:prod-value": "dotenvx run -f .env.production -- bash -c 'echo \"SUBDOMAINS for prod: $SUBDOMAINS\"'",
     "docker:up:dev": "dotenvx run -f .env.keys -- docker-compose --env-file=\".env\" -f docker-compose.yml up -d --build",
     "docker:up:prod": "dotenvx run -f .env.keys -- docker-compose --env-file=\".env.production\" -f docker-compose.yml up -d --build",
-    "docker:down": "docker-compose down"  
+    "docker:down": "dotenvx run -f .env.keys -- docker-compose down"  
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.34.0",

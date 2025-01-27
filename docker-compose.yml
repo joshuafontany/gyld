@@ -1,6 +1,6 @@
 services:
-  admin:
-    container_name: mws_admin
+  www:
+    container_name: mws_www
     build:
       context: .
       dockerfile: docker/mws/Dockerfile
@@ -11,9 +11,9 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8080
-      - WIKI_FOLDER=admin
+      - WIKI_FOLDER=www
     volumes:
-      - ./wikis/admin:/app/TiddlyWiki5/editions/admin:rw
+      - ./wikis/www:/app/TiddlyWiki5/editions/www:rw
       - ./.env:/app/TiddlyWiki5/.env:ro
     ports:
       - "8080:8080"
