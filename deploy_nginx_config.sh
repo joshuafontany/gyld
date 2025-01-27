@@ -7,11 +7,11 @@
 
 set -e
 
-# Load environment variables (if they're not already loaded, ensure you call with dotenvx run)
+# Load environment variables (ensure you call with dotenvx run)
 : "${PRIMARY_DOMAIN:?Need to set PRIMARY_DOMAIN}"
 : "${WWW_DOMAIN:?Need to set WWW_DOMAIN}"
 : "${SUBDOMAINS:?Need to set SUBDOMAINS}"
-: "${SSL_EMAIL:?Need to set SSL_EMAIL}" # used by certbot, not mandatory for dev but we keep it consistent
+: "${SSL_EMAIL:?Need to set SSL_EMAIL}" # Used by certbot, not mandatory for dev but kept for consistency
 
 ENVIRONMENT="$1"
 if [ -z "$ENVIRONMENT" ]; then
@@ -29,9 +29,15 @@ NGINX_CONFIG_FILE=$NGINX_AVAILABLE_DIR/gyld
 # Create directories if they don't exist
 sudo mkdir -p "$NGINX_AVAILABLE_DIR" "$NGINX_ENABLED_DIR"
 
-# Make sure NGINX is installed
+# Ensure NGINX is installed
 if ! command -v nginx >/dev/null 2>&1; then
   echo "NGINX is not installed. Please install it first."
+  exit 1
+fi
+
+# Ensure `yq` is installed for YAML parsing
+if ! command -v yq >/dev/null 2>&1; then
+  echo "yq command not found. Please install it: sudo apt install yq"
   exit 1
 fi
 
@@ -45,63 +51,26 @@ echo "Reading port mappings from $DOCKER_COMPOSE_FILE"
 # FUNCTION to parse docker-compose.yml
 # for the host port mapping under each subdomain service
 ########################################
-# We look for a service block named, for example:
-#   sdm:
-#     ports:
-#       - "8081:8080"
-#
-# Then extract the "8081" portion.
 function get_host_port_from_compose() {
   local subdomainService="$1"
   local dcFile="$2"
-  # default/empty if not found
-  local hostPort=""
 
-  # AWK logic:
-  # 1. Find a line starting at column 0 with "<subdomainService>:" (like "sdm:")
-  # 2. Switch on "found=1" once we enter that block
-  # 3. For each subsequent line, if we see a line matching "[0-9]+:8080" we extract the number
-  # 4. Stop searching once we hit another top-level line (another service) or networks:
-  #
-  # We'll store the captured port in hostPort and return it.
-  hostPort=$(
-    awk -v sd="$subdomainService" '
-      BEGIN {found=0}
-      # A top-level line with "sd:" (no indentation) or "sd:" with indentation=0
-      # or "sd:" preceded by up to 2 spaces is enough for YAML. Adjust as needed.
-      # We remove trailing colon to compare.
-      /^[^ ]/ {
-        # If already found=1 and we see a new top-level line, we stop.
-        if(found==1) { exit }
-        # Check if this is the line matching subdomain:
-        # e.g. "sdm:" => name=sdm
-        # If it matches, set found=1
-        split($1, arr, ":")
-        if(arr[1] == sd) {
-          found=1
-        }
-        next
-      }
-      # If we are in the block for subdomain service, look for port lines
-      found==1 && /[0-9]+:8080/ {
-        match($0, /"([0-9]+):8080"/, m)
-        if(m[1] != "") {
-          print m[1]
-          exit
-        }
-      }
-    ' "$dcFile"
-  )
-  echo "$hostPort"
+  # Extract the first exposed host port from the docker-compose file using yq
+  local hostPort=$(yq e ".services.$subdomainService.ports[0]" "$dcFile" | cut -d':' -f1)
+
+  # If yq returns null or empty, set empty value
+  if [[ "$hostPort" == "null" || -z "$hostPort" ]]; then
+    echo ""
+  else
+    echo "$hostPort"
+  fi
 }
 
 ########################################
 # 1) MAIN SERVER BLOCK FOR PRIMARY/WWW
 ########################################
 
-# We assume the "admin" container is on 8080 internally -> 8080 externally
-# or you can parse it from Docker Compose if you like. For simplicity, we
-# hardcode the admin wiki as 127.0.0.1:8080 in this script.
+# Hardcoding admin container to 8080
 MAIN_HTTP_BLOCK="server {
     listen 80;
     server_name $PRIMARY_DOMAIN $WWW_DOMAIN;
@@ -114,7 +83,7 @@ MAIN_HTTP_BLOCK="server {
     }
 }"
 
-# For production, also define SSL block (listening on 443)
+# For production, add SSL configuration
 MAIN_HTTPS_BLOCK=""
 if [ "$ENVIRONMENT" = "production" ]; then
 MAIN_HTTPS_BLOCK="server {
@@ -140,11 +109,10 @@ SUBDOMAIN_CONFIG=""
 IFS=' ' read -ra SUBDOMAIN_ARRAY <<< "$SUBDOMAINS"
 
 for FULL_SUBDOMAIN in "${SUBDOMAIN_ARRAY[@]}"; do
-  # We assume the subdomain "sdm.gyld.local" or "sdm.gyld.app" => the service is named "sdm"
-  # Trim off everything after the first dot to get "sdm"
+  # Extract subdomain service name (e.g., "sdm.gyld.local" => "sdm")
   SUBDOMAIN_SERVICE_NAME=$(echo "$FULL_SUBDOMAIN" | cut -d '.' -f 1)
 
-  # Fetch the "host port" from docker-compose
+  # Fetch the host port from docker-compose.yml
   HOST_PORT=$(get_host_port_from_compose "$SUBDOMAIN_SERVICE_NAME" "$DOCKER_COMPOSE_FILE")
   if [[ -z "$HOST_PORT" ]]; then
     echo "Warning: Could not find a port mapping for '$SUBDOMAIN_SERVICE_NAME' in $DOCKER_COMPOSE_FILE."
@@ -164,7 +132,7 @@ for FULL_SUBDOMAIN in "${SUBDOMAIN_ARRAY[@]}"; do
       }
   }"
 
-  # For production, add SSL block for each subdomain
+  # For production, add SSL block
   SUBDOMAIN_HTTPS_BLOCK=""
   if [ "$ENVIRONMENT" = "production" ]; then
   SUBDOMAIN_HTTPS_BLOCK="server {
@@ -207,7 +175,7 @@ EOF
 # Symlink into sites-enabled
 sudo ln -sf "$NGINX_CONFIG_FILE" "$NGINX_ENABLED_DIR/gyld"
 
-# Validate and reload
+# Validate and reload NGINX
 echo "Testing NGINX configuration..."
 sudo nginx -t
 echo "Reloading NGINX..."

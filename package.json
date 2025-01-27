@@ -4,10 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "nginx:deploy:dev": "dotenvx run -f .env -- bash deploy_nginx_config.sh dev",
-    "nginx:deploy:prod": "dotenvx run -f .env.production -- bash deploy_nginx_config.sh production",
-    "ssl:setup": "dotenvx run -f .env.production -- bash setup_certbot_ssl.sh",
-    "test-subdomain": "bash tests/test_manage_subdomains.sh"
+    "nginx:deploy:dev": "dotenvx run --env-file=.env -- bash deploy_nginx_config.sh dev",
+    "nginx:deploy:prod": "dotenvx run --env-file=.env.production -- bash deploy_nginx_config.sh production",
+    "ssl:setup": "dotenvx run --env-file=.env.production -- bash setup_certbot_ssl.sh",
+    "test-subdomain": "bash tests/test_manage_subdomains.sh",
+    "docker:build": "docker build -t gyld-app .",
+    "docker:run:dev": "dotenvx run -f .env.keys -- docker run -e \"DOTENV_PRIVATE_KEY=$DOTENV_PRIVATE_KEY\" -it --init --rm -p 3000:3000 gyld-app",
+    "docker:run:prod": "dotenvx run -f .env.keys -- docker run -e \"DOTENV_PRIVATE_KEY_PRODUCTION=$DOTENV_PRIVATE_KEY_PRODUCTION\" -it --init --rm -p 3000:3000 gyld-app"
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.34.0",

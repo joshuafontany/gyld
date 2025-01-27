@@ -1,7 +1,4 @@
 services:
-  ###################################################################
-  # Admin Root WWW Subdomain
-  ###################################################################
   admin:
     container_name: mws_admin
     build:
@@ -19,9 +16,7 @@ services:
       - "8080:8080"
     networks:
       - mws_net
-  ###################################################################
-  # Subdomains
-  ###################################################################
+
   sdm:
     container_name: mws_sdm
     build:
@@ -39,25 +34,25 @@ services:
       - "8081:8080"
     networks:
       - mws_net
+
   silat:
     container_name: mws_silat
     build:
       context: .
       dockerfile: docker/mws/Dockerfile
-    command:
-      - node
-      - ./tiddlywiki.js
-      - ./editions/silat
-      - --mws-listen
-    working_dir: /app/TiddlyWiki5
+    command: ["node", "./tiddlywiki.js", "./editions/silat", "--mws-listen"]
+    working_dir: "/app/TiddlyWiki5"
     environment:
       - HOST=0.0.0.0
       - PORT=8080
     volumes:
-      - - [{./wikis/silat: /app/TiddlyWiki5/editions/silat}]
-      - - [{./data/silat: /app/TiddlyWiki5/editions/silat/store}]
+      - ./wikis/silat:/app/TiddlyWiki5/editions/silat:ro
+      - ./data/silat:/app/TiddlyWiki5/editions/silat/store
     ports:
-      - 1:8080
+      - "8082:8080"
+    networks:
+      - mws_net
+
 networks:
   mws_net:
     driver: bridge
