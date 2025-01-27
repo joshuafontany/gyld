@@ -5,12 +5,11 @@
 #
 # Steps:
 #   1. Check subdomain doesn’t already exist in .env/.env.production
-#   2. Create wikis/<subdomain> + data/<subdomain>/store
-#   3. Generate a new service block in memory
-#   4. Use yq to insert that block into docker-compose.yml
-#   5. Append subdomain to SUBDOMAINS in .env/.env.production
-#   6. Confirm changes
-#   7. (Optional) run docker-compose + redeploy
+#   2. Create wikis/<subdomain> + wikis/<subdomain>/tiddlers + data/<subdomain>/store
+#   3. Insert new service block in docker-compose.yml (via yq)
+#   4. Append subdomain to SUBDOMAINS in .env & .env.production
+#   5. Confirm changes
+#   6. (Optionally) run docker-compose up -d and redeploy NGINX
 
 set -e
 
@@ -28,26 +27,30 @@ DATA_DIR="data"
 
 function subdomain_exists_in_env() {
   local envFile="$1"
-  local subdomain="$2"
-  grep -E "^SUBDOMAINS=" "$envFile" | grep -qw "$subdomain"
+  local sd="$2"
+  grep -E "^SUBDOMAINS=" "$envFile" | grep -qw "$sd"
 }
 
+# 1) Check subdomain doesn’t already exist
 if subdomain_exists_in_env "$ENV_DEV_FILE" "$SUBDOMAIN" || subdomain_exists_in_env "$ENV_PROD_FILE" "$SUBDOMAIN"; then
   echo "ERROR: Subdomain '$SUBDOMAIN' already in $ENV_DEV_FILE or $ENV_PROD_FILE."
   exit 1
 fi
 
+# 2) Create folders for wiki + data
 WIKI_SUBDOMAIN_PATH="$WIKIS_DIR/$SUBDOMAIN"
 DATA_SUBDOMAIN_PATH="$DATA_DIR/$SUBDOMAIN"
+
 if [[ -d "$WIKI_SUBDOMAIN_PATH" || -d "$DATA_SUBDOMAIN_PATH" ]]; then
-  echo "ERROR: Directories already exist for $SUBDOMAIN."
+  echo "ERROR: Directories for '$SUBDOMAIN' already exist."
   exit 1
 fi
 
 echo "Creating directory structure for '$SUBDOMAIN'..."
-mkdir -p "$WIKI_SUBDOMAIN_PATH"
+mkdir -p "$WIKI_SUBDOMAIN_PATH/tiddlers"
 mkdir -p "$DATA_SUBDOMAIN_PATH/store"
 
+# Create a bare-bones tiddlywiki.info
 cat > "$WIKI_SUBDOMAIN_PATH/tiddlywiki.info" <<EOF
 {
   "description": "MWS subdomain: $SUBDOMAIN",
@@ -64,8 +67,18 @@ cat > "$WIKI_SUBDOMAIN_PATH/tiddlywiki.info" <<EOF
 }
 EOF
 
-echo "Created $WIKI_SUBDOMAIN_PATH/tiddlywiki.info"
+# Create configMultiWikiServerEngine.tid in tiddlers/
+cat > "$WIKI_SUBDOMAIN_PATH/tiddlers/configMultiWikiServerEngine.tid" <<EOF
+title: \$:/config/MultiWikiServer/Engine
+text: better
+EOF
 
+echo "Created:"
+echo "  - $WIKI_SUBDOMAIN_PATH/tiddlywiki.info"
+echo "  - $WIKI_SUBDOMAIN_PATH/tiddlers/configMultiWikiServerEngine.tid"
+echo "  - $DATA_SUBDOMAIN_PATH/store"
+
+# 3) Find next port in docker-compose.yml (using grep+awk or yq)
 echo "Finding next available port in $DOCKER_COMPOSE_FILE..."
 LAST_PORT=$(grep -oE '[0-9]{4}:8080' "$DOCKER_COMPOSE_FILE" | cut -d':' -f1 | sort -n | tail -1)
 if [[ -z "$LAST_PORT" ]]; then
@@ -74,8 +87,6 @@ fi
 NEXT_PORT=$(( LAST_PORT + 1 ))
 echo "Latest used port: $LAST_PORT. Next port: $NEXT_PORT."
 
-# We'll add the service as a YAML structure. With yq, we can insert objects easily.
-# For safety, we'll define a temporary YAML file for the subdomain service block.
 TMP_SERVICE_YAML="$(mktemp)"
 cat > "$TMP_SERVICE_YAML" <<EOF
 $SUBDOMAIN:
@@ -97,15 +108,8 @@ $SUBDOMAIN:
     - mws_net
 EOF
 
-echo "Prepared temporary service block file: $TMP_SERVICE_YAML"
-
-# Insert it under `services:` in docker-compose.yml using yq
-echo "Will insert subdomain '$SUBDOMAIN' into $DOCKER_COMPOSE_FILE."
-
-# Backup
+# Merge the new service block into docker-compose.yml using yq
 cp "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_FILE.bak"
-
-# Merge the new service into the `.services` object
 yq eval-all '
   select(fileIndex == 0) as $main |
   select(fileIndex == 1) as $toMerge |
@@ -113,8 +117,9 @@ yq eval-all '
 ' "$DOCKER_COMPOSE_FILE" "$TMP_SERVICE_YAML" > "${DOCKER_COMPOSE_FILE}.tmp"
 
 mv "${DOCKER_COMPOSE_FILE}.tmp" "$DOCKER_COMPOSE_FILE"
+rm -f "$TMP_SERVICE_YAML"
 
-# 5) Update .env / .env.production
+# 4) Append subdomain to SUBDOMAINS in .env + .env.production
 function add_subdomain_to_env() {
   local envFile="$1"
   local sd="$2"
@@ -123,12 +128,10 @@ function add_subdomain_to_env() {
   else
     local domainExt=".gyld.app"
   fi
-  local oldLine
-  oldLine=$(grep -E "^SUBDOMAINS=" "$envFile" || true)
-  if [[ -z "$oldLine" ]]; then
+  if ! grep -Eq "^SUBDOMAINS=" "$envFile"; then
     echo "SUBDOMAINS=\"$sd$domainExt\"" >> "$envFile"
   else
-    sed -i.bak "s|\"$| $sd$domainExt\"|" "$envFile"
+    sed -i.bak "s/\"$/ $sd$domainExt\"/" "$envFile"
     rm -f "$envFile.bak"
   fi
 }
@@ -136,21 +139,20 @@ function add_subdomain_to_env() {
 add_subdomain_to_env "$ENV_DEV_FILE" "$SUBDOMAIN"
 add_subdomain_to_env "$ENV_PROD_FILE" "$SUBDOMAIN"
 
+# 5) Confirm & finalize
 echo
 echo "===== REVIEW CHANGES ====="
-echo " - Created $WIKI_SUBDOMAIN_PATH + $DATA_SUBDOMAIN_PATH"
-echo " - Inserted service '$SUBDOMAIN' into docker-compose.yml with port $NEXT_PORT"
-echo " - Appended '$SUBDOMAIN.gyld.local' to SUBDOMAINS in .env"
-echo " - Appended '$SUBDOMAIN.gyld.app' to SUBDOMAINS in .env.production"
+echo " - New directories: $WIKI_SUBDOMAIN_PATH, $DATA_SUBDOMAIN_PATH"
+echo " - Inserted service '$SUBDOMAIN' into $DOCKER_COMPOSE_FILE with port $NEXT_PORT"
+echo " - Added '$SUBDOMAIN.gyld.local' to SUBDOMAINS in $ENV_DEV_FILE"
+echo " - Added '$SUBDOMAIN.gyld.app' to SUBDOMAINS in $ENV_PROD_FILE"
 read -p "Proceed? (y/N) " CONFIRM
 if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-  echo "Aborting (restored original docker-compose.yml)."
+  echo "Aborting. Restoring $DOCKER_COMPOSE_FILE."
   mv "$DOCKER_COMPOSE_FILE.bak" "$DOCKER_COMPOSE_FILE"
   exit 1
 fi
 
 rm -f "$DOCKER_COMPOSE_FILE.bak"
-rm -f "$TMP_SERVICE_YAML"
-
 echo "Subdomain '$SUBDOMAIN' added successfully."
-echo "You can now run 'docker-compose up -d' and re-deploy NGINX."
+echo "You can now run 'docker-compose up -d' and redeploy NGINX if needed."
