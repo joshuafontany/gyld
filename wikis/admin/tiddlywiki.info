@@ -1,0 +1,14 @@
+{
+  "description": "Main admin wiki for gyld.app",
+  "plugins": [
+    "tiddlywiki/tiddlyweb",
+    "tiddlywiki/filesystem",
+    "tiddlywiki/multiwikiclient",
+    "tiddlywiki/multiwikiserver"
+  ],
+  "themes": [
+    "tiddlywiki/vanilla",
+    "tiddlywiki/snowwhite"
+  ],
+  "build": {}
+}

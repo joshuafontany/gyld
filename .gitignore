@@ -1,13 +1,54 @@
-# node modules
+# -------------------------------------------------------------
+# Node & Build Artifacts
+# -------------------------------------------------------------
 node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Ignore real environment files
+# -------------------------------------------------------------
+# Environment Files
+# (Keep these private; do not commit them)
+# -------------------------------------------------------------
 .env
 .env.*
 
-# Ignore the wiki data
-wikis/
-
-# other
-*.log
+# -------------------------------------------------------------
+# OS & Editor Files
+# -------------------------------------------------------------
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -------------------------------------------------------------
+# Docker-specific
+# -------------------------------------------------------------
+docker-compose.override.yml
+**/dist/
+**/build/
+
+# -------------------------------------------------------------
+# TiddlyWiki MWS: Wiki Editions & Data
+# -------------------------------------------------------------
+# 1) Keep 'admin' subdomain in version control (ignore everything else).
+#   - The ! syntax inverts ignore for admin
+wikis/*
+!wikis/admin/
+
+# If you also want to keep 'admin' subdomain’s "store" folder out of version control,
+# you can ignore it specifically like so:
+wikis/admin/store/
+
+# 2) Explicitly ignore the other subdomains
+wikis/sdm/
+wikis/silat/
+
+# -------------------------------------------------------------
+# TiddlyWiki MWS Data
+# -------------------------------------------------------------
+# Ignore all data directories so local SQLite DB, attachments, etc. are not committed
+data/
