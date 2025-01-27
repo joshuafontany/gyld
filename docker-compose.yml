@@ -4,15 +4,17 @@ services:
     build:
       context: .
       dockerfile: docker/mws/Dockerfile
+      args:
+        - DOTENV_PRIVATE_KEY=$DOTENV_PRIVATE_KEY
+        - DOTENV_PRIVATE_KEY_PRODUCTION=$DOTENV_PRIVATE_KEY_PRODUCTION
     working_dir: "/app/TiddlyWiki5"
-    env_file:
-      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=8080
       - WIKI_FOLDER=admin
     volumes:
       - ./wikis/admin:/app/TiddlyWiki5/editions/admin:rw
+      - ./.env:/app/TiddlyWiki5/.env:ro
     ports:
       - "8080:8080"
     networks:
@@ -22,15 +24,17 @@ services:
     build:
       context: .
       dockerfile: docker/mws/Dockerfile
+      args:
+        - DOTENV_PRIVATE_KEY=$DOTENV_PRIVATE_KEY
+        - DOTENV_PRIVATE_KEY_PRODUCTION=$DOTENV_PRIVATE_KEY_PRODUCTION
     working_dir: "/app/TiddlyWiki5"
-    env_file:
-      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=8080
       - WIKI_FOLDER=sdm
     volumes:
       - ./wikis/sdm:/app/TiddlyWiki5/editions/sdm:rw
+      - ./.env:/app/TiddlyWiki5/.env:ro
     ports:
       - "8081:8080"
     networks:
@@ -40,15 +44,17 @@ services:
     build:
       context: .
       dockerfile: docker/mws/Dockerfile
+      args:
+        - DOTENV_PRIVATE_KEY=$DOTENV_PRIVATE_KEY
+        - DOTENV_PRIVATE_KEY_PRODUCTION=$DOTENV_PRIVATE_KEY_PRODUCTION
     working_dir: "/app/TiddlyWiki5"
-    env_file:
-      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=8080
       - WIKI_FOLDER=silat
     volumes:
       - ./wikis/silat:/app/TiddlyWiki5/editions/silat:rw
+      - ./.env:/app/TiddlyWiki5/.env:ro
     ports:
       - "8082:8080"
     networks:

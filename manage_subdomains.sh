@@ -101,15 +101,17 @@ container_name: mws_$SUBDOMAIN
 build:
   context: .
   dockerfile: docker/mws/Dockerfile
+  args:
+    - DOTENV_PRIVATE_KEY=\$DOTENV_PRIVATE_KEY
+    - DOTENV_PRIVATE_KEY_PRODUCTION=\$DOTENV_PRIVATE_KEY_PRODUCTION
 working_dir: /app/TiddlyWiki5
-env_file:
-  - .env
 environment:
   - HOST=0.0.0.0
   - PORT=8080
   - WIKI_FOLDER=$SUBDOMAIN
 volumes:
   - ./wikis/$SUBDOMAIN:/app/TiddlyWiki5/editions/$SUBDOMAIN:rw
+  - ./.env:/app/TiddlyWiki5/.env:ro
 ports:
   - $NEXT_PORT:8080
 EOF
