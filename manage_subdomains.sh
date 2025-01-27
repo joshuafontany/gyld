@@ -76,7 +76,9 @@ case "$COMMAND" in
     }' "$DOCKER_COMPOSE_FILE" -i
 
     for envFile in "$ENV_DEV_FILE" "$ENV_PROD_FILE"; do
-      sed -i.bak "s/\"$/ $SUBDOMAIN\"/" "$envFile"
+      DOMAIN_SUFFIX="gyld.local"
+      [[ "$envFile" == "$ENV_PROD_FILE" ]] && DOMAIN_SUFFIX="gyld.app"
+      sed -i.bak "/^SUBDOMAINS=/ s/\"/ $SUBDOMAIN.$DOMAIN_SUFFIX\"/" "$envFile"
       rm -f "$envFile.bak"
     done
     ;;
@@ -95,7 +97,9 @@ case "$COMMAND" in
 
     yq eval 'del(.services."'"$SUBDOMAIN"'" )' "$DOCKER_COMPOSE_FILE" -i
     for envFile in "$ENV_DEV_FILE" "$ENV_PROD_FILE"; do
-      sed -i.bak "/$SUBDOMAIN/d" "$envFile"
+      DOMAIN_SUFFIX="gyld.local"
+      [[ "$envFile" == "$ENV_PROD_FILE" ]] && DOMAIN_SUFFIX="gyld.app"
+      sed -i.bak "/^SUBDOMAINS=/ s/ $SUBDOMAIN.$DOMAIN_SUFFIX//" "$envFile"
       rm -f "$envFile.bak"
     done
     rm -rf "$WIKIS_DIR/$SUBDOMAIN" "$DATA_DIR/$SUBDOMAIN"
