@@ -13,12 +13,10 @@ services:
       - WIKI_FOLDER=admin
     volumes:
       - ./wikis/admin:/app/TiddlyWiki5/editions/admin:rw
-      - ./data/admin:/app/TiddlyWiki5/editions/admin/store:rw
     ports:
       - "8080:8080"
     networks:
       - mws_net
-
   sdm:
     container_name: mws_sdm
     build:
@@ -33,12 +31,10 @@ services:
       - WIKI_FOLDER=sdm
     volumes:
       - ./wikis/sdm:/app/TiddlyWiki5/editions/sdm:rw
-      - ./data/sdm:/app/TiddlyWiki5/editions/sdm/store:rw
     ports:
       - "8081:8080"
     networks:
       - mws_net
-
   silat:
     container_name: mws_silat
     build:
@@ -53,12 +49,10 @@ services:
       - WIKI_FOLDER=silat
     volumes:
       - ./wikis/silat:/app/TiddlyWiki5/editions/silat:rw
-      - ./data/silat:/app/TiddlyWiki5/editions/silat/store:rw
     ports:
       - "8082:8080"
     networks:
       - mws_net
-
 networks:
   mws_net:
     driver: bridge

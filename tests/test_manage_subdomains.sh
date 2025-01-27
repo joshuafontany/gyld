@@ -7,7 +7,6 @@ ENV_DEV_FILE=".env"
 ENV_PROD_FILE=".env.production"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 WIKIS_DIR="wikis/$TEST_SUBDOMAIN"
-DATA_DIR="data/$TEST_SUBDOMAIN"
 DOMAIN_DEV="$TEST_SUBDOMAIN.gyld.local"
 DOMAIN_PROD="$TEST_SUBDOMAIN.gyld.app"
 
@@ -23,8 +22,8 @@ echo "Testing subdomain addition..."
 bash manage_subdomains.sh add "$TEST_SUBDOMAIN" <<< "y"
 
 # Verify directory creation
-if [[ -d "$WIKIS_DIR" && -d "$DATA_DIR" ]]; then
-  echo "Directories created successfully."
+if [[ -d "$WIKIS_DIR" ]]; then
+  echo "Directory created successfully."
 else
   echo "Directory creation failed."
   exit 1
@@ -51,8 +50,8 @@ echo "Testing subdomain removal..."
 bash manage_subdomains.sh remove "$TEST_SUBDOMAIN" <<< "y"
 
 # Verify directory removal
-if [[ ! -d "$WIKIS_DIR" && ! -d "$DATA_DIR" ]]; then
-  echo "Directories removed successfully."
+if [[ ! -d "$WIKIS_DIR" ]]; then
+  echo "Directory removed successfully."
 else
   echo "Directory removal failed."
   exit 1

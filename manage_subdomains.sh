@@ -6,7 +6,7 @@
 # This script manages MultiWikiServer subdomains by adding or removing them from:
 #   - .env / .env.production (SUBDOMAINS=...)
 #   - docker-compose.yml (manages services using yq)
-#   - wikis/<subdomain> and data/<subdomain>
+#   - wikis/<subdomain>
 #
 # Steps:
 #   1. Propose changes to the user
@@ -28,7 +28,6 @@ ENV_DEV_FILE=".env"
 ENV_PROD_FILE=".env.production"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 WIKIS_DIR="wikis"
-DATA_DIR="data"
 
 function update_env_file() {
   local envFile="$1"
@@ -60,7 +59,7 @@ function update_env_file() {
 case "$COMMAND" in
   add)
     echo "The following changes will be made:"
-    echo "- Create directories: $WIKIS_DIR/$SUBDOMAIN, $DATA_DIR/$SUBDOMAIN"
+    echo "- Create directory: $WIKIS_DIR/$SUBDOMAIN"
     echo "- Add service to $DOCKER_COMPOSE_FILE"
     echo "- Append $SUBDOMAIN to SUBDOMAINS in .env and .env.production"
 
@@ -71,7 +70,6 @@ case "$COMMAND" in
     fi
 
     mkdir -p "$WIKIS_DIR/$SUBDOMAIN/tiddlers"
-    mkdir -p "$DATA_DIR/$SUBDOMAIN/store"
 
     cat > "$WIKIS_DIR/$SUBDOMAIN/tiddlywiki.info" <<EOF
 {
@@ -94,19 +92,28 @@ title: $:/config/MultiWikiServer/Engine
 text: better
 EOF
 
-    LAST_PORT=$(yq e '.services.*.ports | select(. != null) | .[] | split(":"")[0]' "$DOCKER_COMPOSE_FILE" | sort -nr | head -n1)
+    LAST_PORT=$(yq e '.services.*.ports | select(. != null) | .[] | split(":")[0]' "$DOCKER_COMPOSE_FILE" | sort -nr | head -n1)
     NEXT_PORT=$((LAST_PORT + 1))
 
     echo "Adding service to docker-compose.yml..."
-    yq eval '.services."'"$SUBDOMAIN"'" = {
-    "container_name": "mws_'"$SUBDOMAIN"'",
-    "build": {"context": ".", "dockerfile": "docker/mws/Dockerfile"},
-    "working_dir": "/app/TiddlyWiki5",
-    "env_file": "- .env"
-    "environment": ["HOST=0.0.0.0", "PORT=8080", "WIKI_FOLDER='"$SUBDOMAIN"'"],
-    "volumes": ["./wikis/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"':rw", "./data/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"'/store:rw"],
-    "ports": ["'"$NEXT_PORT"':8080"]
-    }' "$DOCKER_COMPOSE_FILE" -i
+yq eval ".services[\"$SUBDOMAIN\"] = \"$(cat <<EOF
+container_name: mws_$SUBDOMAIN
+build:
+  context: .
+  dockerfile: docker/mws/Dockerfile
+working_dir: /app/TiddlyWiki5
+env_file:
+  - .env
+environment:
+  - HOST=0.0.0.0
+  - PORT=8080
+  - WIKI_FOLDER=$SUBDOMAIN
+volumes:
+  - ./wikis/$SUBDOMAIN:/app/TiddlyWiki5/editions/$SUBDOMAIN:rw
+ports:
+  - $NEXT_PORT:8080
+EOF
+)\"" -i "$DOCKER_COMPOSE_FILE"
 
     update_env_file "$ENV_DEV_FILE" "$SUBDOMAIN" "add" "gyld.local"
     update_env_file "$ENV_PROD_FILE" "$SUBDOMAIN" "add" "gyld.app"
@@ -115,7 +122,7 @@ EOF
     echo "The following changes will be made:"
     echo "- Remove service block for $SUBDOMAIN from $DOCKER_COMPOSE_FILE"
     echo "- Remove $SUBDOMAIN from SUBDOMAINS in .env and .env.production"
-    echo "- Delete directories: $WIKIS_DIR/$SUBDOMAIN, $DATA_DIR/$SUBDOMAIN"
+    echo "- Delete directory: $WIKIS_DIR/$SUBDOMAIN"
 
     read -p "Proceed? (y/N) " CONFIRM
     if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -126,7 +133,7 @@ EOF
     yq eval 'del(.services."'"$SUBDOMAIN"'" )' "$DOCKER_COMPOSE_FILE" -i
     update_env_file "$ENV_DEV_FILE" "$SUBDOMAIN" "remove" "gyld.local"
     update_env_file "$ENV_PROD_FILE" "$SUBDOMAIN" "remove" "gyld.app"
-    rm -rf "$WIKIS_DIR/$SUBDOMAIN" "$DATA_DIR/$SUBDOMAIN"
+    rm -rf "$WIKIS_DIR/$SUBDOMAIN"
     ;;
   *)
     echo "Invalid command. Use 'add' or 'remove'."
