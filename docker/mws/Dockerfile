@@ -35,4 +35,4 @@ EXPOSE 8080
 RUN dotenvx run --quiet -- sh -c 'echo "Encrypted SUBDOMAINS: $SUBDOMAINS"'
 
 # Default command placeholder to be overridden in docker-compose
-CMD dotenvx run -f .env -- node ./tiddlywiki.js ./editions/${WIKI_FOLDER} --mws-listen
+CMD dotenvx run -f .env -- node ./tiddlywiki.js ./editions/${WIKI_FOLDER} --mws-listen $HOST $PORT
