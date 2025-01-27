@@ -20,7 +20,7 @@ services:
     networks:
       - mws_net
   ###################################################################
-  # sdm Subdomain
+  # Subdomains
   ###################################################################
   sdm:
     container_name: mws_sdm
@@ -39,7 +39,6 @@ services:
       - "8081:8080"
     networks:
       - mws_net
-
 networks:
   mws_net:
     driver: bridge

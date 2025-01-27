@@ -6,7 +6,8 @@
   "scripts": {
     "nginx:deploy:dev": "dotenvx run -f .env -- bash deploy_nginx_config.sh dev",
     "nginx:deploy:prod": "dotenvx run -f .env.production -- bash deploy_nginx_config.sh production",
-    "ssl:setup": "dotenvx run -f .env.production -- bash setup_certbot_ssl.sh"
+    "ssl:setup": "dotenvx run -f .env.production -- bash setup_certbot_ssl.sh",
+    "test-subdomain": "bash tests/test_manage_subdomains.sh"
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.34.0",

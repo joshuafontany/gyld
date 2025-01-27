@@ -8,11 +8,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # -------------------------------------------------------------
-# Environment Files
+# Environment Key Files
 # (Keep these private; do not commit them)
 # -------------------------------------------------------------
-.env
-.env.*
+.env.keys
 
 # -------------------------------------------------------------
 # OS & Editor Files
@@ -38,14 +37,6 @@ docker-compose.override.yml
 #   - The ! syntax inverts ignore for admin
 wikis/*
 !wikis/admin/
-
-# If you also want to keep 'admin' subdomain’s "store" folder out of version control,
-# you can ignore it specifically like so:
-wikis/admin/store/
-
-# 2) Explicitly ignore the other subdomains
-wikis/sdm/
-wikis/silat/
 
 # -------------------------------------------------------------
 # TiddlyWiki MWS Data

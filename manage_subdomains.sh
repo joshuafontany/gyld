@@ -30,23 +30,29 @@ DOCKER_COMPOSE_FILE="docker-compose.yml"
 WIKIS_DIR="wikis"
 DATA_DIR="data"
 
-function subdomain_exists_in_env() {
+function update_env_file() {
   local envFile="$1"
-  local sd="$2"
-  if [[ -f "$envFile" ]]; then
-    grep -E "^SUBDOMAINS=" "$envFile" | grep -qw "$sd"
-  else
-    return 1
+  local subdomain="$2"
+  local action="$3"
+  local domainSuffix="$4"
+  
+  current_value=$(dotenvx get SUBDOMAINS -f "$envFile" 2>/dev/null || echo "")
+
+  if [[ "$action" == "add" ]]; then
+    if [[ "$current_value" == *"$subdomain.$domainSuffix"* ]]; then
+      echo "Subdomain already exists in $envFile"
+    else
+      new_value="$current_value $subdomain.$domainSuffix"
+      dotenvx set SUBDOMAINS "$new_value" -f "$envFile"
+    fi
+  elif [[ "$action" == "remove" ]]; then
+    new_value=$(echo "$current_value" | sed "s/\b$subdomain.$domainSuffix\b//g" | xargs)
+    dotenvx set SUBDOMAINS "$new_value" -f "$envFile"
   fi
 }
 
 case "$COMMAND" in
   add)
-    if subdomain_exists_in_env "$ENV_DEV_FILE" "$SUBDOMAIN" || subdomain_exists_in_env "$ENV_PROD_FILE" "$SUBDOMAIN"; then
-      echo "ERROR: Subdomain '$SUBDOMAIN' already exists."
-      exit 1
-    fi
-
     echo "The following changes will be made:"
     echo "- Create directories: $WIKIS_DIR/$SUBDOMAIN, $DATA_DIR/$SUBDOMAIN"
     echo "- Add service to $DOCKER_COMPOSE_FILE"
@@ -75,12 +81,8 @@ case "$COMMAND" in
       "ports": ["'"$NEXT_PORT"':8080"]
     }' "$DOCKER_COMPOSE_FILE" -i
 
-    for envFile in "$ENV_DEV_FILE" "$ENV_PROD_FILE"; do
-      DOMAIN_SUFFIX="gyld.local"
-      [[ "$envFile" == "$ENV_PROD_FILE" ]] && DOMAIN_SUFFIX="gyld.app"
-      sed -i.bak "/^SUBDOMAINS=/ s/\"/ $SUBDOMAIN.$DOMAIN_SUFFIX\"/" "$envFile"
-      rm -f "$envFile.bak"
-    done
+    update_env_file "$ENV_DEV_FILE" "$SUBDOMAIN" "add" "gyld.local"
+    update_env_file "$ENV_PROD_FILE" "$SUBDOMAIN" "add" "gyld.app"
     ;;
 
   remove)
@@ -96,12 +98,8 @@ case "$COMMAND" in
     fi
 
     yq eval 'del(.services."'"$SUBDOMAIN"'" )' "$DOCKER_COMPOSE_FILE" -i
-    for envFile in "$ENV_DEV_FILE" "$ENV_PROD_FILE"; do
-      DOMAIN_SUFFIX="gyld.local"
-      [[ "$envFile" == "$ENV_PROD_FILE" ]] && DOMAIN_SUFFIX="gyld.app"
-      sed -i.bak "/^SUBDOMAINS=/ s/ $SUBDOMAIN.$DOMAIN_SUFFIX//" "$envFile"
-      rm -f "$envFile.bak"
-    done
+    update_env_file "$ENV_DEV_FILE" "$SUBDOMAIN" "remove" "gyld.local"
+    update_env_file "$ENV_PROD_FILE" "$SUBDOMAIN" "remove" "gyld.app"
     rm -rf "$WIKIS_DIR/$SUBDOMAIN" "$DATA_DIR/$SUBDOMAIN"
     ;;
   *)
