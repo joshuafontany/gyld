@@ -35,20 +35,26 @@ function update_env_file() {
   local subdomain="$2"
   local action="$3"
   local domainSuffix="$4"
-  
+
   current_value=$(dotenvx get SUBDOMAINS -f "$envFile" 2>/dev/null || echo "")
+  IFS=' ' read -ra subdomains <<< "$current_value"
 
   if [[ "$action" == "add" ]]; then
-    if [[ "$current_value" == *"$subdomain.$domainSuffix"* ]]; then
+    if [[ " ${subdomains[*]} " =~ " $subdomain.$domainSuffix " ]]; then
       echo "Subdomain already exists in $envFile"
     else
-      new_value="$current_value $subdomain.$domainSuffix"
-      dotenvx set SUBDOMAINS "$new_value" -f "$envFile"
+      subdomains+=("$subdomain.$domainSuffix")
     fi
   elif [[ "$action" == "remove" ]]; then
-    new_value=$(echo "$current_value" | sed "s/\b$subdomain.$domainSuffix\b//g" | xargs)
-    dotenvx set SUBDOMAINS "$new_value" -f "$envFile"
+    for i in "${!subdomains[@]}"; do
+      if [[ "${subdomains[i]}" == "$subdomain.$domainSuffix" ]]; then
+        unset 'subdomains[i]'
+      fi
+    done
   fi
+
+  new_value="${subdomains[*]}"
+  dotenvx set SUBDOMAINS "$new_value" -f "$envFile"
 }
 
 case "$COMMAND" in
@@ -67,7 +73,28 @@ case "$COMMAND" in
     mkdir -p "$WIKIS_DIR/$SUBDOMAIN/tiddlers"
     mkdir -p "$DATA_DIR/$SUBDOMAIN/store"
 
-    LAST_PORT=$(yq e '.services.*.ports | select(. != null) | .[] | split(":")[0]' "$DOCKER_COMPOSE_FILE" | sort -nr | head -n1)
+    cat > "$WIKIS_DIR/$SUBDOMAIN/tiddlywiki.info" <<EOF
+{
+  "description": "MWS subdomain: $SUBDOMAIN",
+  "plugins": [
+    "tiddlywiki/tiddlyweb",
+    "tiddlywiki/filesystem",
+    "tiddlywiki/multiwikiclient",
+    "tiddlywiki/multiwikiserver"
+  ],
+  "themes": [
+    "tiddlywiki/vanilla",
+    "tiddlywiki/snowwhite"
+  ]
+}
+EOF
+
+    cat > "$WIKIS_DIR/$SUBDOMAIN/tiddlers/configMultiWikiServerEngine.tid" <<EOF
+title: $:/config/MultiWikiServer/Engine
+text: better
+EOF
+
+    LAST_PORT=$(yq e '.services.*.ports | select(. != null) | .[] | split(":"")[0]' "$DOCKER_COMPOSE_FILE" | sort -nr | head -n1)
     NEXT_PORT=$((LAST_PORT + 1))
 
     echo "Adding service to docker-compose.yml..."
@@ -84,7 +111,6 @@ case "$COMMAND" in
     update_env_file "$ENV_DEV_FILE" "$SUBDOMAIN" "add" "gyld.local"
     update_env_file "$ENV_PROD_FILE" "$SUBDOMAIN" "add" "gyld.app"
     ;;
-
   remove)
     echo "The following changes will be made:"
     echo "- Remove service block for $SUBDOMAIN from $DOCKER_COMPOSE_FILE"
