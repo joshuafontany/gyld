@@ -99,13 +99,13 @@ EOF
 
     echo "Adding service to docker-compose.yml..."
     yq eval '.services."'"$SUBDOMAIN"'" = {
-      "container_name": "mws_'"$SUBDOMAIN"'",
-      "build": {"context": ".", "dockerfile": "docker/mws/Dockerfile"},
-      "command": ["node", "./tiddlywiki.js", "./editions/'"$SUBDOMAIN"'", "--mws-listen"],
-      "working_dir": "/app/TiddlyWiki5",
-      "environment": ["HOST=0.0.0.0", "PORT=8080"],
-      "volumes": ["./wikis/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"'", "./data/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"'/store"],
-      "ports": ["'"$NEXT_PORT"':8080"]
+    "container_name": "mws_'"$SUBDOMAIN"'",
+    "build": {"context": ".", "dockerfile": "docker/mws/Dockerfile"},
+    "working_dir": "/app/TiddlyWiki5",
+    "env_file": "- .env"
+    "environment": ["HOST=0.0.0.0", "PORT=8080", "WIKI_FOLDER='"$SUBDOMAIN"'"],
+    "volumes": ["./wikis/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"':rw", "./data/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"'/store:rw"],
+    "ports": ["'"$NEXT_PORT"':8080"]
     }' "$DOCKER_COMPOSE_FILE" -i
 
     update_env_file "$ENV_DEV_FILE" "$SUBDOMAIN" "add" "gyld.local"
