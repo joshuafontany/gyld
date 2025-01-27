@@ -72,11 +72,11 @@ case "$COMMAND" in
       "working_dir": "/app/TiddlyWiki5",
       "environment": ["HOST=0.0.0.0", "PORT=8080"],
       "volumes": ["./wikis/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"'", "./data/'"$SUBDOMAIN"'": "/app/TiddlyWiki5/editions/'"$SUBDOMAIN"'/store"],
-      "ports": ["'"$NEXT_PORT"'":8080]
+      "ports": ["'"$NEXT_PORT"':8080"]
     }' "$DOCKER_COMPOSE_FILE" -i
 
     for envFile in "$ENV_DEV_FILE" "$ENV_PROD_FILE"; do
-      sed -i.bak "s/"$/ $SUBDOMAIN"/" "$envFile"
+      sed -i.bak "s/\"$/ $SUBDOMAIN\"/" "$envFile"
       rm -f "$envFile.bak"
     done
     ;;
