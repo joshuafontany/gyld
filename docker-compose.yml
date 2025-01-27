@@ -4,66 +4,45 @@ services:
   ###################################################################
   # Admin Subdomain
   ###################################################################
-admin:
+  admin:
     container_name: mws_admin
-build:
+    build:
       context: .
       dockerfile: docker/mws/Dockerfile
     command: [ "node", "./tiddlywiki.js", "./editions/admin", "--mws-listen" ]
     working_dir: "/app/TiddlyWiki5"
-environment:
+    environment:
       - HOST=0.0.0.0
       - PORT=8080
-volumes:
-      # 1) Subdomain edition (read-only): tiddlywiki.info + any subdomain tiddlers
+    volumes:
       - ./wikis/admin:/app/TiddlyWiki5/editions/admin:ro
-      # 2) Data folder: store the database + uploads
       - ./data/admin:/app/TiddlyWiki5/editions/admin/store
-ports:
+    ports:
       - "8080:8080"
-networks:
+    networks:
       - mws_net
 
   ###################################################################
   # sdm Subdomain
   ###################################################################
-sdm:
+  sdm:
     container_name: mws_sdm
-build:
+    build:
       context: .
       dockerfile: docker/mws/Dockerfile
     command: [ "node", "./tiddlywiki.js", "./editions/sdm", "--mws-listen" ]
     working_dir: "/app/TiddlyWiki5"
-environment:
+    environment:
       - HOST=0.0.0.0
       - PORT=8080
-volumes:
+    volumes:
       - ./wikis/sdm:/app/TiddlyWiki5/editions/sdm:ro
       - ./data/sdm:/app/TiddlyWiki5/editions/sdm/store
-ports:
+    ports:
       - "8081:8080"
-networks:
-      - mws_net
-
-  ###################################################################
-  # silat Subdomain
-  ###################################################################
-build:
-      context: .
-      dockerfile: docker/mws/Dockerfile
-    command: [ "node", "./tiddlywiki.js", "./editions/silat", "--mws-listen" ]
-    working_dir: "/app/TiddlyWiki5"
-environment:
-      - HOST=0.0.0.0
-      - PORT=8080
-volumes:
-      - ./wikis/silat:/app/TiddlyWiki5/editions/silat:ro
-      - ./data/silat:/app/TiddlyWiki5/editions/silat/store
-ports:
-      - "8082:8080"  # Different host port than sdm
-networks:
+    networks:
       - mws_net
 
 networks:
-mws_net:
+  mws_net:
     driver: bridge

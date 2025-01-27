@@ -3,16 +3,14 @@
 # add_subdomain.sh
 # Usage: ./add_subdomain.sh <subdomainName>
 #
-# Example: ./add_subdomain.sh sdm
-#
 # Steps:
 #   1. Check subdomain doesn’t already exist in .env/.env.production
 #   2. Create wikis/<subdomain> + data/<subdomain>/store
-#   3. Parse docker-compose.yml to find next available port mapping
-#   4. Insert new service block in docker-compose.yml
+#   3. Generate a new service block in memory
+#   4. Use yq to insert that block into docker-compose.yml
 #   5. Append subdomain to SUBDOMAINS in .env/.env.production
-#   6. Confirm changes with user
-#   7. Optionally call "npm run nginx:deploy:dev" or "npm run nginx:deploy:prod"
+#   6. Confirm changes
+#   7. (Optional) run docker-compose + redeploy
 
 set -e
 
@@ -22,35 +20,27 @@ if [[ -z "$SUBDOMAIN" ]]; then
   exit 1
 fi
 
-# Paths
 ENV_DEV_FILE=".env"
 ENV_PROD_FILE=".env.production"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 WIKIS_DIR="wikis"
 DATA_DIR="data"
 
-# 1) Check subdomain doesn’t already exist
 function subdomain_exists_in_env() {
   local envFile="$1"
   local subdomain="$2"
-  # We look for SUBDOMAINS line and see if it already contains the subdomain
-  if grep -E "^SUBDOMAINS=" "$envFile" | grep -qw "$subdomain"; then
-    return 0
-  else
-    return 1
-  fi
+  grep -E "^SUBDOMAINS=" "$envFile" | grep -qw "$subdomain"
 }
 
 if subdomain_exists_in_env "$ENV_DEV_FILE" "$SUBDOMAIN" || subdomain_exists_in_env "$ENV_PROD_FILE" "$SUBDOMAIN"; then
-  echo "ERROR: Subdomain '$SUBDOMAIN' already exists in $ENV_DEV_FILE or $ENV_PROD_FILE."
+  echo "ERROR: Subdomain '$SUBDOMAIN' already in $ENV_DEV_FILE or $ENV_PROD_FILE."
   exit 1
 fi
 
-# 2) Create wikis/<subdomain> + data/<subdomain>/store
 WIKI_SUBDOMAIN_PATH="$WIKIS_DIR/$SUBDOMAIN"
 DATA_SUBDOMAIN_PATH="$DATA_DIR/$SUBDOMAIN"
 if [[ -d "$WIKI_SUBDOMAIN_PATH" || -d "$DATA_SUBDOMAIN_PATH" ]]; then
-  echo "ERROR: Directories $WIKI_SUBDOMAIN_PATH or $DATA_SUBDOMAIN_PATH already exist. Aborting."
+  echo "ERROR: Directories already exist for $SUBDOMAIN."
   exit 1
 fi
 
@@ -58,7 +48,6 @@ echo "Creating directory structure for '$SUBDOMAIN'..."
 mkdir -p "$WIKI_SUBDOMAIN_PATH"
 mkdir -p "$DATA_SUBDOMAIN_PATH/store"
 
-# Optionally, create a bare-bones tiddlywiki.info
 cat > "$WIKI_SUBDOMAIN_PATH/tiddlywiki.info" <<EOF
 {
   "description": "MWS subdomain: $SUBDOMAIN",
@@ -77,112 +66,91 @@ EOF
 
 echo "Created $WIKI_SUBDOMAIN_PATH/tiddlywiki.info"
 
-# 3) Parse docker-compose.yml to find next available external port
-# We expect something like "8080:8080", "8081:8080", etc.
 echo "Finding next available port in $DOCKER_COMPOSE_FILE..."
-LAST_PORT=$(grep -oE '[0-9]{4}:8080' "$DOCKER_COMPOSE_FILE" | awk -F: '{print $1}' | sort -n | tail -1)
+LAST_PORT=$(grep -oE '[0-9]{4}:8080' "$DOCKER_COMPOSE_FILE" | cut -d':' -f1 | sort -n | tail -1)
 if [[ -z "$LAST_PORT" ]]; then
-  # If no match found, assume 8080 is used by admin, so we’ll use 8081
   LAST_PORT=8080
 fi
 NEXT_PORT=$(( LAST_PORT + 1 ))
-echo "Latest used port is: $LAST_PORT. Next available is: $NEXT_PORT."
+echo "Latest used port: $LAST_PORT. Next port: $NEXT_PORT."
 
-# 4) Insert new service block
-SERVICE_NAME="mws_${SUBDOMAIN}"
-SERVICE_BLOCK="
-  $SUBDOMAIN:
-    container_name: mws_${SUBDOMAIN}
-    build:
-      context: .
-      dockerfile: docker/mws/Dockerfile
-    command: [ \"node\", \"./tiddlywiki.js\", \"./editions/${SUBDOMAIN}\", \"--mws-listen\" ]
-    working_dir: \"/app/TiddlyWiki5\"
-    environment:
-      - HOST=0.0.0.0
-      - PORT=8080
-    volumes:
-      - ./${WIKIS_DIR}/${SUBDOMAIN}:/app/TiddlyWiki5/editions/${SUBDOMAIN}:ro
-      - ./${DATA_DIR}/${SUBDOMAIN}:/app/TiddlyWiki5/editions/${SUBDOMAIN}/store
-    ports:
-      - \"${NEXT_PORT}:8080\"
-    networks:
-      - mws_net
-"
+# We'll add the service as a YAML structure. With yq, we can insert objects easily.
+# For safety, we'll define a temporary YAML file for the subdomain service block.
+TMP_SERVICE_YAML="$(mktemp)"
+cat > "$TMP_SERVICE_YAML" <<EOF
+$SUBDOMAIN:
+  container_name: mws_$SUBDOMAIN
+  build:
+    context: .
+    dockerfile: docker/mws/Dockerfile
+  command: ["node", "./tiddlywiki.js", "./editions/$SUBDOMAIN", "--mws-listen"]
+  working_dir: "/app/TiddlyWiki5"
+  environment:
+    - HOST=0.0.0.0
+    - PORT=8080
+  volumes:
+    - "./wikis/$SUBDOMAIN:/app/TiddlyWiki5/editions/$SUBDOMAIN:ro"
+    - "./data/$SUBDOMAIN:/app/TiddlyWiki5/editions/$SUBDOMAIN/store"
+  ports:
+    - "$NEXT_PORT:8080"
+  networks:
+    - mws_net
+EOF
 
-echo "Will insert the following service block into $DOCKER_COMPOSE_FILE:"
-echo "$SERVICE_BLOCK"
+echo "Prepared temporary service block file: $TMP_SERVICE_YAML"
 
-# 5) Append subdomain to SUBDOMAINS in .env and .env.production
-# Also for both .gyld.local and .gyld.app references
-echo "Updating environment files..."
-function add_subdomain_to_env_file() {
-  local envFile="$1"
-  local subdomain="$2"
-  # We assume there's a line SUBDOMAINS="sdm.gyld.local silat.gyld.local"
-  # We'll insert $subdomain.gyld.local and $subdomain.gyld.app
-  local oldLine
-  local newLine
+# Insert it under `services:` in docker-compose.yml using yq
+echo "Will insert subdomain '$SUBDOMAIN' into $DOCKER_COMPOSE_FILE."
 
-  oldLine=$(grep -E "^SUBDOMAINS=" "$envFile" || true)
-  if [[ -n "$oldLine" ]]; then
-    # Subdomain for .local or .app
-    # For dev, we assume .local
-    if [[ "$envFile" == ".env" ]]; then
-      local domainExt=".gyld.local"
-    else
-      local domainExt=".gyld.app"
-    fi
-    newLine=$(echo "$oldLine" | sed "s/\"$/ $subdomain$domainExt\"/")
-    sed -i.bak "s|^SUBDOMAINS=.*|$newLine|" "$envFile"
-    rm -f "$envFile.bak"
-  else
-    # If SUBDOMAINS= doesn't exist, create it
-    echo "SUBDOMAINS=\"$subdomain.gyld.local\"" >> "$envFile"
-  fi
-}
-
-add_subdomain_to_env_file "$ENV_DEV_FILE" "$SUBDOMAIN"
-add_subdomain_to_env_file "$ENV_PROD_FILE" "$SUBDOMAIN"
-
-# 6) Confirm changes with user
-echo
-echo "===== REVIEW CHANGES ====="
-echo "New directories created: $WIKI_SUBDOMAIN_PATH, $DATA_SUBDOMAIN_PATH"
-echo "New Docker Compose block (port $NEXT_PORT) will be appended at the end of $DOCKER_COMPOSE_FILE."
-echo "SUBDOMAIN added to $ENV_DEV_FILE and $ENV_PROD_FILE."
-read -p "Proceed with these changes? (y/N) " CONFIRM
-if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-  echo "Aborting."
-  exit 1
-fi
-
-# Actually append the service block at the end of the 'services:' section
-# We'll insert before 'networks:' if it exists
-# or simply append at end if no 'networks:' line
-echo "Committing changes to $DOCKER_COMPOSE_FILE..."
 # Backup
 cp "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_FILE.bak"
 
-# We use an awk approach to insert the new service block before 'networks:' if found
-awk -v block="$SERVICE_BLOCK" '
-  /networks:/ {
-    print block
-  }
-  { print }
-' "$DOCKER_COMPOSE_FILE.bak" > "$DOCKER_COMPOSE_FILE"
+# Merge the new service into the `.services` object
+yq eval-all '
+  select(fileIndex == 0) as $main |
+  select(fileIndex == 1) as $toMerge |
+  $main * {"services": $toMerge}
+' "$DOCKER_COMPOSE_FILE" "$TMP_SERVICE_YAML" > "${DOCKER_COMPOSE_FILE}.tmp"
+
+mv "${DOCKER_COMPOSE_FILE}.tmp" "$DOCKER_COMPOSE_FILE"
+
+# 5) Update .env / .env.production
+function add_subdomain_to_env() {
+  local envFile="$1"
+  local sd="$2"
+  if [[ "$envFile" == ".env" ]]; then
+    local domainExt=".gyld.local"
+  else
+    local domainExt=".gyld.app"
+  fi
+  local oldLine
+  oldLine=$(grep -E "^SUBDOMAINS=" "$envFile" || true)
+  if [[ -z "$oldLine" ]]; then
+    echo "SUBDOMAINS=\"$sd$domainExt\"" >> "$envFile"
+  else
+    sed -i.bak "s|\"$| $sd$domainExt\"|" "$envFile"
+    rm -f "$envFile.bak"
+  fi
+}
+
+add_subdomain_to_env "$ENV_DEV_FILE" "$SUBDOMAIN"
+add_subdomain_to_env "$ENV_PROD_FILE" "$SUBDOMAIN"
+
+echo
+echo "===== REVIEW CHANGES ====="
+echo " - Created $WIKI_SUBDOMAIN_PATH + $DATA_SUBDOMAIN_PATH"
+echo " - Inserted service '$SUBDOMAIN' into docker-compose.yml with port $NEXT_PORT"
+echo " - Appended '$SUBDOMAIN.gyld.local' to SUBDOMAINS in .env"
+echo " - Appended '$SUBDOMAIN.gyld.app' to SUBDOMAINS in .env.production"
+read -p "Proceed? (y/N) " CONFIRM
+if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+  echo "Aborting (restored original docker-compose.yml)."
+  mv "$DOCKER_COMPOSE_FILE.bak" "$DOCKER_COMPOSE_FILE"
+  exit 1
+fi
 
 rm -f "$DOCKER_COMPOSE_FILE.bak"
+rm -f "$TMP_SERVICE_YAML"
 
 echo "Subdomain '$SUBDOMAIN' added successfully."
-
-# 7) (Optionally) re-deploy or do manual steps
-echo
-echo "You can now run Docker Compose to spin up the new container, e.g.:"
-echo "  docker-compose up -d"
-echo
-echo "Then re-deploy NGINX config via dev or prod environment:"
-echo "  npm run nginx:deploy:dev   # or"
-echo "  npm run nginx:deploy:prod"
-echo
-echo "Done!"
+echo "You can now run 'docker-compose up -d' and re-deploy NGINX."
