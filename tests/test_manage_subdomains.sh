@@ -66,11 +66,12 @@ else
 fi
 
 # Verify docker-compose.yml service removed
-if ! yq e ".services.$TEST_SUBDOMAIN" "$DOCKER_COMPOSE_FILE" >/dev/null 2>&1; then
+if [[ -z $(yq e ".services.$TEST_SUBDOMAIN // empty" "$DOCKER_COMPOSE_FILE") ]]; then
   echo "Docker service removed successfully."
 else
   echo "Failed to remove service from docker-compose.yml."
   exit 1
 fi
+
 
 echo "Subdomain management test passed successfully!"

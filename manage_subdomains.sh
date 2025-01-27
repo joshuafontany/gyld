@@ -130,7 +130,12 @@ EOF
       exit 1
     fi
 
-    yq eval 'del(.services."'"$SUBDOMAIN"'" )' "$DOCKER_COMPOSE_FILE" -i
+    if yq eval ".services[\"$SUBDOMAIN\"]" "$DOCKER_COMPOSE_FILE" >/dev/null 2>&1; then
+        yq eval "del(.services[\"$SUBDOMAIN\"])" -i "$DOCKER_COMPOSE_FILE"
+        echo "Docker service removed successfully."
+    else
+        echo "Service $SUBDOMAIN not found in docker-compose.yml."
+    fi
     update_env_file "$ENV_DEV_FILE" "$SUBDOMAIN" "remove" "gyld.local"
     update_env_file "$ENV_PROD_FILE" "$SUBDOMAIN" "remove" "gyld.app"
     rm -rf "$WIKIS_DIR/$SUBDOMAIN"

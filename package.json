@@ -4,12 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "nginx:deploy:dev": "dotenvx run --env-file=.env -- bash deploy_nginx_config.sh dev",
-    "nginx:deploy:prod": "dotenvx run --env-file=.env.production -- bash deploy_nginx_config.sh production",
-    "ssl:setup": "dotenvx run --env-file=.env.production -- bash setup_certbot_ssl.sh",
-    "test-subdomain": "bash tests/test_manage_subdomains.sh",
-    "docker:up:dev": "dotenvx run -f .env.keys -- docker-compose --env-file .env -f docker-compose.yml up -d --build",
-    "docker:up:prod": "dotenvx run -f .env.keys -- docker-compose --env-file .env.production -f docker-compose.yml up -d --build",
+    "nginx:deploy:dev": "dotenvx run -f .env -- bash deploy_nginx_config.sh dev",
+    "nginx:deploy:prod": "dotenvx run -f .env.production -- bash deploy_nginx_config.sh production",
+    "ssl:setup": "dotenvx run -f .env.production -- bash setup_certbot_ssl.sh",
+    "test:subdomains": "bash tests/test_manage_subdomains.sh",
+    "test:subdomains:dev-value": "dotenvx run -f .env -- bash -c 'echo \"SUBDOMAINS for dev: $SUBDOMAINS\"'",
+    "test:subdomains:prod-value": "dotenvx run -f .env.production -- bash -c 'echo \"SUBDOMAINS for prod: $SUBDOMAINS\"'",
+    "docker:up:dev": "dotenvx run -f .env.keys -- docker-compose --env-file=.env -f docker-compose.yml up -d --build",
+    "docker:up:prod": "dotenvx run -f .env.keys -- docker-compose --env-file=.env.production -f docker-compose.yml up -d --build",
     "docker:down": "docker-compose down"  
   },
   "dependencies": {
