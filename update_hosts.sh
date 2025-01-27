@@ -3,7 +3,7 @@
 # Define variables
 # hostname -I | awk '{print $1}'
 NGINX_IP="172.20.44.97"  # Replace with your actual NGINX server IP
-DOMAINS=("gyld.local" "www.gyld.local")  # Replace with your app domains
+DOMAINS=("gyld.local" "www.gyld.local" "sdm.gyld.local" "silat.gyld.local")  # Replace with your app domains
 HOSTS_FILE_LINUX="/etc/hosts"
 HOSTS_FILE_WIN="/mnt/c/Windows/System32/drivers/etc/hosts"
 BACKUP_SUFFIX=".bak"
